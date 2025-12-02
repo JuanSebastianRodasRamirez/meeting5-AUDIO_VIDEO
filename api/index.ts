@@ -1,4 +1,4 @@
-import { Server} from "socket.io";
+import { Server } from "socket.io";
 import "dotenv/config";
 
 const origins = (process.env.ORIGIN ?? "")
@@ -13,39 +13,37 @@ const io = new Server({
 });
 
 const port = Number(process.env.PORT);
-
 io.listen(port);
 console.log(`Server is running on port ${port}`);
 
-let peers: any = {};
+let peers: Record<string, { name: string | null }> = {};
 
 io.on("connection", (socket) => {
   if (!peers[socket.id]) {
-    peers[socket.id] = {};
-    socket.emit("introduction", Object.keys(peers));
-    io.emit("newUserConnected", socket.id);
-    console.log(
-      "Peer joined with ID",
-      socket.id,
-      ". There are " + io.engine.clientsCount + " peer(s) connected."
-    );
+    peers[socket.id] = { name: null };
+    socket.emit("introduction", Object.entries(peers));
+    io.emit("newUserConnected", { id: socket.id, name: null });
+    console.log("Peer joined:", socket.id);
   }
+
+  socket.on("setName", (realName: string) => {
+    if (peers[socket.id] && peers[socket.id].name !== realName) {
+      peers[socket.id].name = realName;
+      io.emit("userNameUpdated", { id: socket.id, name: realName });
+      console.log(`Name set for ${socket.id}: ${realName}`);
+    }
+  });
+  
 
   socket.on("signal", (to, from, data) => {
     if (to in peers) {
       io.to(to).emit("signal", to, from, data);
-    } else {
-      console.log("Peer not found!");
     }
   });
 
   socket.on("disconnect", () => {
     delete peers[socket.id];
     io.sockets.emit("userDisconnected", socket.id);
-    console.log(
-      "Peer disconnected with ID",
-      socket.id,
-      ". There are " + io.engine.clientsCount + " peer(s) connected."
-    );
+    console.log("Peer disconnected:", socket.id);
   });
 });
