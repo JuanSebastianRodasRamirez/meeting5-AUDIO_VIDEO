@@ -1,4 +1,5 @@
 import { Server } from "socket.io";
+import http from "http";
 import "dotenv/config";
 
 const origins = (process.env.ORIGIN ?? "")
@@ -6,14 +7,23 @@ const origins = (process.env.ORIGIN ?? "")
   .map(s => s.trim())
   .filter(Boolean);
 
-const io = new Server({
+// Basic HTTP server for health checks and root path
+const app = http.createServer((req, res) => {
+  // Simple health response on any path
+  res.statusCode = 200;
+  res.setHeader("Content-Type", "text/plain");
+  res.end("ok\n");
+});
+
+// Attach Socket.IO to the HTTP server
+const io = new Server(app, {
   cors: {
     origin: origins
   }
 });
 
-const port = Number(process.env.PORT);
-io.listen(port);
+const port = Number(process.env.PORT ?? 3000);
+app.listen(port, "0.0.0.0");
 console.log(`Server is running on port ${port}`);
 
 let peers: Record<string, { name: string | null }> = {};
